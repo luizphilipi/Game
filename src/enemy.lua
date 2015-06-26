@@ -29,18 +29,29 @@ end
 
 function enemyShot(enemy)
     local x,y = enemy:center()
-    local shot = Collider:addCircle(x,y, 3)
-    Collider:addToGroup('shots', shot)
-    Collider:addToGroup('enemies', shot)
-    shot.name = 'shot'
-    shot.velocity = 400
-    shot.sentido = 1
-    shot.maxDistance = 500
-    shot.initialpos = {}
-    shot.initialpos.x = x
-    shot.initialpos.y = y
-    shot.damage = 50
-    table.insert(hero.shots,shot)
+    local xH,yH = hero:center()
+
+    local dx = x - xH
+    local dy = y - yH
+    if math.sqrt ( dx * dx + dy * dy ) < 500 then
+        local shot = Collider:addCircle(x,y, 3)
+        Collider:addToGroup('shots', shot)
+        Collider:addToGroup('enemies', shot)
+        shot.name = 'shot'
+        shot.velocity = 400
+        shot.maxDistance = 500
+        shot.initialpos = {}
+        shot.initialpos.x = x
+        shot.initialpos.y = y
+        shot.damage = 50
+
+        local angle = math.atan2((yH - y), (xH - x))
+
+        shot.dx = 400 * math.cos(angle)
+        shot.dy = 400 * math.sin(angle)
+
+        table.insert(hero.shots,shot)
+    end
 end
 
 function moveEnemy(self, dt)

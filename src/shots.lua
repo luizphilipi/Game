@@ -1,4 +1,4 @@
-function createShot(shotType, x, y, sentido)
+function createShot(shotType, x, y, xDestino, yDestino)
     local shots = {}
     if shotType == 'single' then
         local n = love.math.random()
@@ -10,15 +10,18 @@ function createShot(shotType, x, y, sentido)
             shot = Collider:addCircle(x,y, 3)
             shot.damage = 50
         end
-        shot:setRotation(math.pi * sentido)
         Collider:addToGroup('shots', shot)
         shot.name = 'shot'
-        shot.velocity = 400
-        shot.sentido = sentido
         shot.maxDistance = 500
         shot.initialpos = {}
         shot.initialpos.x = x
         shot.initialpos.y = y
+
+        local angle = math.atan2((yDestino - y), (xDestino - x))
+
+        shot.dx = 500 * math.cos(angle)
+        shot.dy = 500 * math.sin(angle)
+
         table.insert(shots,shot)
         return shots
     elseif shotType == 'triple' then
@@ -42,15 +45,7 @@ function createShot(shotType, x, y, sentido)
 end
 
 function moveShot(self, dt)
-    if self.sentido == 0 then
-        self:move(dt*self.velocity, 0)
-    elseif self.sentido == 1 then
-        self:move(-dt*self.velocity, 0)
-    elseif self.sentido == 1/2 then
-        self:move(0, -dt*self.velocity)
-    elseif self.sentido == 3/2 then
-        self:move(0, dt*self.velocity)
-    end
+    self:move(self.dx * dt, self.dy * dt)
 end
 
 function validateShot(self, i)
@@ -67,10 +62,9 @@ end
 
 local shotCount = 0
 
-function shoot(sentido)
+function shoot(x,y,xD,yD)
     if shotCount == 50 then
-        local x,y = hero:center()
-        shots = createShot('single', x, y, sentido)
+        shots = createShot('single', x, y, xD,yD)
         for i,shot in ipairs(shots) do
             table.insert(hero.shots, shot)
         end

@@ -1,41 +1,116 @@
-function love.load()
-    love.graphics.setBackgroundColor(54, 172, 248)
- 
-    bulletSpeed = 250
- 
-    bullets = {}
-    player = {x=250, y=250, width=15, height=15}
-end
+HC = require 'hardoncollider'
+cron = require 'lib.cron.cron'
+Camera = require "lib.hump.camera"
 
-function love.draw()
-    love.graphics.setColor(255, 255, 255)
-    love.graphics.rectangle("fill",  player.x, player.y, player.width, player.height)
- 
-    love.graphics.setColor(128, 128, 128)
-    for i,v in ipairs(bullets) do
-        love.graphics.circle("fill", v.x, v.y, 3)
-    end
+local thispath = select('1', ...):match(".+%.") or ""
+require(thispath .. 'shots')
+require(thispath .. 'enemy')
+require(thispath .. 'collision')
+
+function love.load()
+    love.window.setMode(0, 0, {vsync=false, fullscreen=false})
+    love.keyboard.setKeyRepeat(false)
+    count = 0
+    Collider = HC(100, on_collide, on_stop)
+
+    width, height = love.graphics.getDimensions()
+    hero        = Collider:addCircle(width/2, height/2, 10)
+
+    Collider:setGhost(hero)
+
+    hero.speed = 300
+    hero.name = 'hero'
+    hero.critical = 0.3
+    hero.shots = {}
+
+    enemies = {}
+    portals = {}
+
+    table.insert(portals,newPortal(10, height/2-50, 20,100,1,20))
+    table.insert(portals,newPortal(width-30, height/2-50, 20,100,1,20))
+
+    cam = Camera(hero:center())
 end
 
 function love.update(dt)
-    for i,v in ipairs(bullets) do
-        v.x = v.x + (v.dx * dt)
-        v.y = v.y + (v.dy * dt)
+    if love.keyboard.isDown("a") then
+        hero:move(-(hero.speed*dt), 0)
+    elseif love.keyboard.isDown("d") then
+        hero:move((hero.speed*dt), 0)
     end
+
+    if love.keyboard.isDown("w") then
+        hero:move(0, -(hero.speed*dt))
+    elseif love.keyboard.isDown("s") then
+        hero:move(0, hero.speed*dt)
+    end
+
+    local x,y = hero:center()
+    if love.keyboard.isDown("left") then
+        shoot(x,y,x-50,y)
+    elseif love.keyboard.isDown("right") then
+        shoot(x,y,x+50,y)
+    elseif love.keyboard.isDown("up") then
+        shoot(x,y,x,y-50)
+    elseif love.keyboard.isDown("down") then
+        shoot(x,y,x,y+50)
+    end
+
+    for i,shot in ipairs(hero.shots) do
+        moveShot(shot, dt)
+        validateShot(shot, i)
+    end
+
+    for i,enemy in ipairs(enemies) do
+        moveEnemy(enemy,dt)
+        if enemy.cron then
+            enemy.cron:update(dt)
+        end
+    end
+
+    for i,portal in ipairs(portals) do
+        portal.cron:update(dt)
+    end
+    Collider:update(dt)
+    cam:lookAt(hero:center())
 end
 
-function love.mousepressed(x, y, button)
-    if button == "l" then
-        local startX = player.x + player.width / 2
-        local startY = player.y + player.height / 2
-        local mouseX = x
-        local mouseY = y
- 
-        local angle = math.atan2((mouseY - startY), (mouseX - startX))
- 
-        local bulletDx = bulletSpeed * math.cos(angle)
-        local bulletDy = bulletSpeed * math.sin(angle)
- 
-        table.insert(bullets, {x = startX, y = startY, dx = bulletDx, dy = bulletDy})
+function love.draw()
+    love.graphics.print("Current FPS: "..tostring(love.timer.getFPS()), 10, 10)
+    cam:draw(draw_world)
+end
+
+function draw_world()
+    love.graphics.setColor(0,255,255,255)
+    hero:draw('fill', 16)
+    --    leftPaddle:draw('fill')
+    --    rightPaddle:draw('fill')
+    for i,portal in ipairs(portals) do
+        portal:draw('fill')
+    end
+    love.graphics.setColor(255,255,255,255)
+    for i,shot in ipairs(hero.shots) do
+        shot:draw('fill')
+    end
+    for i,enemy in ipairs(enemies) do
+        local x, y = enemy:center()
+
+        local life = ''
+        local v = enemy.life
+        if v <= 999 then
+            life = v
+        elseif v <= 999999 then
+            life = v/1000 .. 'k'
+        else
+            life = v/1000000 .. 'kk'
+        end
+
+        love.graphics.print(life, x-15, y-35)
+        love.graphics.setColor(255,0,0,255)
+        love.graphics.rectangle("fill", x-15, y-20, enemy.width, 3)
+        love.graphics.setColor(0,255,0,255)
+        love.graphics.rectangle("fill", x-15, y-20, enemy.width * (enemy.life / enemy.maxLife), 3)
+        love.graphics.setColor(0,255,255,255)
+        enemy:draw('fill')
     end
 end
